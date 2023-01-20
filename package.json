@@ -1,0 +1,26 @@
+{
+  "name": "pushcam",
+  "version": "1.0.0",
+  "description": "Firebase FCM for receiving push notification from camera detection via REST API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ondyn/pushCam.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ondyn/pushCam/issues"
+  },
+  "homepage": "https://github.com/ondyn/pushCam#readme",
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase": "^9.15.0",
+    "firebase-admin": "^11.4.1",
+    "winston": "^3.8.2"
+  }
+}
