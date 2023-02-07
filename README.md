@@ -28,3 +28,16 @@ example:
 
 https://www.techotopia.com/index.php/Sending_Firebase_Cloud_Messages_from_a_Node.js_Server
 
+
+
+1) Download nssm from http://nssm.cc/download/?page=download and extract nssm.exe, for example to %windir%\system32\
+
+2) Install your service:
+
+nssm.exe install my-node-service c:\programs\nodejes\node.exe c:\my\server.js
+
+3) Start it using net start:
+
+net start my-node-service
+
+(From http://blog.tatham.oddie.com.au/2011/03/16/node-js-on-windows/)
