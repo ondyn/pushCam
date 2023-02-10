@@ -81,7 +81,8 @@ app.get('/test', (req, res) => {
 app.post('/', async (req, res) => {
 
 
-  //{"image":"{BASE64IMAGE}", "id":"{ID}", "ot":"{OT}", "filename":"{FILENAME}","msg":"{MSG}", "name":"{NAME}", "groups":"{GROUPS}", "location":"{LOCATION}", "ai_objects":"{AI}", "timestamp":"{0:MM-dd}"}
+  //{"image":"{BASE64IMAGE}", "id":"{ID}", "ot":"{OT}", "filename":"{FILENAME}","msg":"{MSG}", "name":"{NAME}", "groups":"{GROUPS}",
+  // "location":"{LOCATION}", "ai_objects":"{AI}", "timestamp":"{0:MM-dd}"}
 
   //{ID}: The object ID. When you edit a camera or microphone in Agent this is displayed at top left of the editor.
   // {OT}: The object type ID. 1 = Microphone, 2 = Camera
@@ -105,7 +106,13 @@ app.post('/', async (req, res) => {
     data: {
       timestampUtc: (new Date).toUTCString(),
       runTime: (time - startTime).toString(),
-      imagePath: `${config.bucket}/${time}.png`
+      imagePath: `${config.bucket}/${time}.png`,
+      location: req.body.location,
+      group: req.body.groups,
+      name:  req.body.name,
+      msg: req.body.msg,
+      objectType: req.body.ot,
+      camId: req.body.id
     }
   };
 
