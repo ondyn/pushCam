@@ -3,6 +3,7 @@ import { createLogger, format, transports } from "winston"
 import admin from "firebase-admin"
 import os from "os"
 import file from "fs"
+import { v4 as uuidv4 } from 'uuid';
 
 import { readFile } from 'fs/promises';
 const config = JSON.parse(
@@ -98,6 +99,39 @@ app.post('/', async (req, res) => {
   //logger.info(req.body);
   const time = Date.now();
 
+
+  // store image to firestore
+  var base64Data = req.body.image.replace(/^data:image\/jpeg;base64,/, "");
+
+  const path = `img/${time}.png`;
+  file.writeFile(path, base64Data, 'base64', function (err) {
+    logger.info(err);
+  });
+  
+  const bucket = admin.storage().bucket(`gs://${config.bucket}`);
+  let uuid = uuidv4();
+  var url = "";
+
+  await bucket.upload(path, {
+    //destination: `tst`,
+    //destination: 'foo/sub/bar.png',
+
+    gzip: true,
+    metadata: {
+      cacheControl: 'public, max-age=31536000',
+      metadata: {
+        firebaseStorageDownloadTokens: uuid
+      }
+    }
+  }).then((data) => {
+    let file = data[0];
+    logger.info('file uploaded.');
+    url = "https://firebasestorage.googleapis.com/v0/b/" + config.bucket + "/o/" + encodeURIComponent(file.name) + "?alt=media&token=" + uuid;
+  }).catch(err => {
+    logger.info('ERROR:', err);
+  });
+
+  // push message
   var payload = {
     notification: {
       title: `Cam Notification`,
@@ -105,8 +139,8 @@ app.post('/', async (req, res) => {
     },
     data: {
       timestampUtc: (new Date).toUTCString(),
-      runTime: (time - startTime).toString(),
-      imagePath: `${config.bucket}/${time}.png`,
+      runTime: (time - startTime).toString(),//in ms
+      imagePath: url,
       location: req.body.location,
       group: req.body.groups,
       name:  req.body.name,
@@ -127,29 +161,6 @@ app.post('/', async (req, res) => {
       logger.info(msg);
       res.send(msg);
     });
-
-  var base64Data = req.body.image.replace(/^data:image\/jpeg;base64,/, "");
-
-  const path = `img/${time}.png`;
-  file.writeFile(path, base64Data, 'base64', function (err) {
-    logger.info(err);
-  });
-  
-  const bucket = admin.storage().bucket(`gs://${config.bucket}`);
-
-  bucket.upload(path, {
-    //destination: `tst`,
-    //destination: 'foo/sub/bar.png',
-
-    gzip: true,
-    metadata: {
-      cacheControl: 'public, max-age=31536000'
-    }
-  }).then(() => {
-    logger.info('file uploaded.');
-  }).catch(err => {
-    logger.info('ERROR:', err);
-  });
 
 })
 
