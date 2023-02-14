@@ -41,3 +41,16 @@ nssm.exe install my-node-service c:\programs\nodejes\node.exe c:\my\server.js
 net start my-node-service
 
 (From http://blog.tatham.oddie.com.au/2011/03/16/node-js-on-windows/)
+
+## Firebase storage rules
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if
+          request.time < timestamp.date(2023, 3, 9);
+      allow write: if
+      		request.auth.token.admin;
+    }
+  }
+}
