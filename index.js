@@ -87,6 +87,60 @@ app.get('/test', (req, res) => {
     });
 })
 
+const notifyImage=(async (imagePath, imageName, msg)=>{
+  const bucket = admin.storage().bucket(`gs://${configFB.bucket}`);
+  let uuid = uuidv4();
+  var url = "";
+
+  await bucket.upload(imagePath, {
+    //destination: `tst`,
+    //destination: 'foo/sub/bar.png',
+
+    gzip: true,
+    metadata: {
+      cacheControl: 'public, max-age=31536000',
+      metadata: {
+        firebaseStorageDownloadTokens: uuid
+      }
+    }
+  }).then((data) => {
+    let file = data[0];
+    logger.info('file uploaded.');
+    url = "https://firebasestorage.googleapis.com/v0/b/" + configFB.bucket + "/o/" + encodeURIComponent(file.name) + "?alt=media&token=" + uuid;
+  }).catch(err => {
+    logger.info('ERROR:', err);
+  });
+
+  // push message
+  var payload = {
+    notification: {
+      title: `Cam Notification`,
+      body: msg
+    },
+    data: {
+      timestampUtc: (new Date).toUTCString(),
+      //runTime: (time - startTime).toString(),//in ms
+      imagePath: url,
+      //location: req.body.location,
+      //group: req.body.groups,
+      //name: req.body.name,
+      //msg: req.body.msg,
+      //objectType: req.body.ot,
+      //camId: req.body.id
+    }
+  };
+
+  admin.messaging().sendToTopic(eventTopic, payload)
+    .then(function (response) {
+      var msg = `Successfully sent resp: ${JSON.stringify(response)}, msg: ${JSON.stringify(payload)}`;
+      logger.info(msg);      
+    })
+    .catch(function (error) {
+      var msg = `Error sending resp: ${JSON.stringify(error)}, msg: ${JSON.stringify(payload)}`;
+      logger.info(msg);      
+    });
+});
+
 app.post('/', async (req, res) => {
 
 
@@ -116,59 +170,7 @@ app.post('/', async (req, res) => {
     logger.info(err);
   });
 
-  const bucket = admin.storage().bucket(`gs://${configFB.bucket}`);
-  let uuid = uuidv4();
-  var url = "";
-
-  await bucket.upload(path, {
-    //destination: `tst`,
-    //destination: 'foo/sub/bar.png',
-
-    gzip: true,
-    metadata: {
-      cacheControl: 'public, max-age=31536000',
-      metadata: {
-        firebaseStorageDownloadTokens: uuid
-      }
-    }
-  }).then((data) => {
-    let file = data[0];
-    logger.info('file uploaded.');
-    url = "https://firebasestorage.googleapis.com/v0/b/" + configFB.bucket + "/o/" + encodeURIComponent(file.name) + "?alt=media&token=" + uuid;
-  }).catch(err => {
-    logger.info('ERROR:', err);
-  });
-
-  // push message
-  var payload = {
-    notification: {
-      title: `Cam Notification`,
-      body: `From ${hostname}`
-    },
-    data: {
-      timestampUtc: (new Date).toUTCString(),
-      runTime: (time - startTime).toString(),//in ms
-      imagePath: url,
-      location: req.body.location,
-      group: req.body.groups,
-      name: req.body.name,
-      msg: req.body.msg,
-      objectType: req.body.ot,
-      camId: req.body.id
-    }
-  };
-
-  admin.messaging().sendToTopic(eventTopic, payload)
-    .then(function (response) {
-      var msg = `Successfully sent resp: ${JSON.stringify(response)}, msg: ${JSON.stringify(payload)}`;
-      logger.info(msg);
-      res.send(msg);
-    })
-    .catch(function (error) {
-      var msg = `Error sending resp: ${JSON.stringify(error)}, msg: ${JSON.stringify(payload)}`;
-      logger.info(msg);
-      res.send(msg);
-    });
+  await notifyImage(path, time, 'Alarm')
 
 })
 
@@ -210,16 +212,42 @@ var timerID = setInterval(() => {
 // Get a database reference to our posts
 var db = admin.database();
 const ref = db.ref('commands/cameras/1/arm');
+const ref2 = db.ref('commands/cameras/1/image');
 
 // Attach an asynchronous callback to read the data at our posts reference
 ref.on('value', (snapshot) => {
+  logger.info(`arm DB changed to:${snapshot.val()}`);
   const arm = snapshot.val()['armedCmd'];
   if (arm) {
     axios.get(`http://${iSpyAgentIP}:${iSpyAgentPort}/command/arm`);
   } else {
     axios.get(`http://${iSpyAgentIP}:${iSpyAgentPort}/command/disarm`);
   }
-  logger.info(snapshot.val());
+}, (errorObject) => {
+  logger.info('The read failed: ' + errorObject.name);
+});
+
+const downloadImage = ( async (fileName) =>{
+  const path = `img/req${fileName}.png`;
+  const writer = file.createWriteStream(path)
+
+  const res = await axios.get(`http://${iSpyAgentIP}:${iSpyAgentPort}/grab.jpg`, { params: { oid: 1, size: '640x1138' }, responseType: 'stream' });
+
+  res.data.pipe(writer)
+
+  return new Promise((resolve, reject) => {
+    writer.on('finish', resolve)
+    writer.on('error', reject)
+  })
+});
+
+ref2.on('value', async (snapshot) => {
+  logger.info('image DB req');
+  const time = Date.now();
+  const path = `img/req${snapshot.val()['lastTimeStampUtc']}.png`;
+  await downloadImage(snapshot.val()['lastTimeStampUtc']);
+  await notifyImage(path, time, 'Requested image')
+
 }, (errorObject) => {
   logger.info('The read failed: ' + errorObject.name);
 });
