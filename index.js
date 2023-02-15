@@ -5,9 +5,10 @@ import os from "os"
 import file from "fs"
 import { v4 as uuidv4 } from 'uuid';
 import axios from "axios";
+import config from "config";
 
-const iSpyAgentIP = '127.0.0.1';
-//const iSpyAgentIP = '192.168.1.200';
+const iSpyAgentIP = config.get('iSpyAgent.ip');
+const iSpyAgentPort = config.get('iSpyAgent.port');
 
 const logger = createLogger({
   format: format.combine(format.timestamp(), format.json()),
@@ -15,7 +16,7 @@ const logger = createLogger({
 });
 
 import { readFile } from 'fs/promises';
-const config = JSON.parse(
+const configFB = JSON.parse(
   await readFile(
     new URL('config/pushcam-firebase.json', import.meta.url)
   )
@@ -55,8 +56,8 @@ app.use(function (err, req, res, next) {
 });
 
 admin.initializeApp({
-  credential: admin.credential.cert(config),
-  databaseURL: "https://pushcam-c9768-default-rtdb.europe-west1.firebasedatabase.app/"
+  credential: admin.credential.cert(configFB),
+  databaseURL: configFB.database
 })
 
 app.get('/', (req, res) => {
@@ -115,7 +116,7 @@ app.post('/', async (req, res) => {
     logger.info(err);
   });
 
-  const bucket = admin.storage().bucket(`gs://${config.bucket}`);
+  const bucket = admin.storage().bucket(`gs://${configFB.bucket}`);
   let uuid = uuidv4();
   var url = "";
 
@@ -133,7 +134,7 @@ app.post('/', async (req, res) => {
   }).then((data) => {
     let file = data[0];
     logger.info('file uploaded.');
-    url = "https://firebasestorage.googleapis.com/v0/b/" + config.bucket + "/o/" + encodeURIComponent(file.name) + "?alt=media&token=" + uuid;
+    url = "https://firebasestorage.googleapis.com/v0/b/" + configFB.bucket + "/o/" + encodeURIComponent(file.name) + "?alt=media&token=" + uuid;
   }).catch(err => {
     logger.info('ERROR:', err);
   });
@@ -177,7 +178,7 @@ app.post('/', async (req, res) => {
 
 var armed = true;
 var timerID = setInterval(() => {
-  axios.get(`http://${iSpyAgentIP}:8090/command/getStatus`).then(resp => {
+  axios.get(`http://${iSpyAgentIP}:${iSpyAgentPort}/command/getStatus`).then(resp => {
     var armedTmp = resp.data.armed;
     if (armedTmp != armed) {
       armed = armedTmp;
@@ -214,9 +215,9 @@ const ref = db.ref('commands/cameras/1/arm');
 ref.on('value', (snapshot) => {
   const arm = snapshot.val()['armedCmd'];
   if (arm) {
-    axios.get(`http://${iSpyAgentIP}:8090/command/arm`);
+    axios.get(`http://${iSpyAgentIP}:${iSpyAgentPort}/command/arm`);
   } else {
-    axios.get(`http://${iSpyAgentIP}:8090/command/disarm`);
+    axios.get(`http://${iSpyAgentIP}:${iSpyAgentPort}/command/disarm`);
   }
   logger.info(snapshot.val());
 }, (errorObject) => {

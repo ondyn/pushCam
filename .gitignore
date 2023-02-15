@@ -1,5 +1,5 @@
 node_modules
 .idea
-config
+config/pushcam-firebase.json
 srv.log
 img/*
