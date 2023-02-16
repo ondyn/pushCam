@@ -144,19 +144,7 @@ const notifyImage=(async (imagePath, imageName, msg)=>{
 app.post('/', async (req, res) => {
 
 
-  //{"image":"{BASE64IMAGE}", "id":"{ID}", "ot":"{OT}", "filename":"{FILENAME}","msg":"{MSG}", "name":"{NAME}", "groups":"{GROUPS}",
-  // "location":"{LOCATION}", "ai_objects":"{AI}", "timestamp":"{0:MM-dd}"}
 
-  //{ID}: The object ID. When you edit a camera or microphone in Agent this is displayed at top left of the editor.
-  // {OT}: The object type ID. 1 = Microphone, 2 = Camera
-  // {FILENAME}: The filename. This applies to events like Recording Started, Recording Finished and Snapshot Taken. It's the full local path to the file.
-  // {MSG}: The event name that triggered the action, for example "Manual Alert"
-  // {NAME}: The name of the device (on the General tab)
-  // {GROUPS}: The groups the device belongs to (on the General tab)
-  // {LOCATION}: The location the camera is in (on the General tab)
-  // {AI}: Comma separated list of detected objects from DeepStack, plates from LPR or detected faces from Facial Recognition
-  // {AIJSON}: JSON data returned from DeepStack or LPR
-  // {BASE64IMAGE}: Live image data URL for example: "data:image/jpeg;base64,..." (available v4.3.6.0+)
 
   //logger.info(req.body);
   const time = Date.now();
@@ -181,9 +169,14 @@ app.post('/', async (req, res) => {
 var armed = true;
 var timerID = setInterval(() => {
   axios.get(`http://${iSpyAgentIP}:${iSpyAgentPort}/command/getStatus`).then(resp => {
+    var time = Date.now();
     var armedTmp = resp.data.armed;
     if (armedTmp != armed) {
       armed = armedTmp;
+
+      var db = admin.database();
+      const ref = db.ref('statuses/cameras/1/arm');
+      ref.update({"armed": armed, "lastTimeStampUtc": time})
 
       var payload = {
         notification: {
@@ -191,7 +184,7 @@ var timerID = setInterval(() => {
           body: `Armed ${armed}`
         },
         data: {
-          timestampUtc: (new Date).toUTCString(),
+          timestampUtc: time.toString(),
           armed: armed.toString()
         }
       }
